@@ -1,0 +1,5 @@
+*.log
+*.md
+tunnel-server
+tunnel-client
+.git
