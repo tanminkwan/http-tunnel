@@ -3,16 +3,61 @@
 HTTP-only(롱폴링) 방식 역방향 터널의 Go 구현 + Docker 이미지입니다.
 멀티스테이지 빌드로 `scratch` 베이스의 최소 이미지를 만듭니다(수 MB 수준).
 
+## 1. 네트워크 구조 (Network Architecture)
+
+질문하신 흐름이 맞습니다! 실제 사용자의 요청(Request)은 **오른쪽에서 왼쪽**으로 흘러가고, 응답(Response)은 다시 **왼쪽에서 오른쪽**으로 반환됩니다.
+
 ```
-http-tunnel-go/
-├── server/
-│   ├── main.go
-│   ├── Dockerfile
-│   └── .dockerignore
+[내부망 (Private Network / NAT)]                               │ [외부망 (Public Server / Host)]
+                                                               │
+   flask-client <── 5. tunnel-client <── 4. tunnel-server <── 3. nginx-gateway <── 2. curl 명령
+   (5000 포트)          (내부망)            (9000/8080 포트)      (40080:80 포트)        (외부 요청)
+```
+
+### 상세 요청 흐름 시퀀스
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as curl 명령 (외부 요청)
+    participant Nginx as nginx-gateway (외부)
+    participant Server as tunnel-server (외부)
+    participant Client as tunnel-client (내부망)
+    participant Flask as flask-client (내부망)
+
+    Note over Server,Client: HTTP 롱폴링 제어 채널 (/poll)
+    
+    User->>Nginx: HTTP 요청 (Host Port 40080)
+    Nginx->>Server: HTTP 프록시 (Container Port 9000)
+    Note over Server: 요청 TCP 데이터를 프레임으로 변환 후 큐에 보관
+    Client->>Server: /poll 요청하여 대기 중인 프레임 수신
+    Client->>Flask: TCP 데이터 전달 (Container Port 5000)
+    Flask-->>Client: HTTP 응답 TCP 데이터 반환
+    Client->>Server: /send API로 응답 프레임 전달
+    Server-->>Nginx: TCP 응답 전송
+    Nginx-->>User: 최종 HTTP 응답 반환
+```
+
+* **Server-side (외부망)**: Nginx와 `tunnel-server`가 위치하며, 외부 실제 요청을 받아들이는 게이트웨이 역할을 합니다.
+* **Client-side (내부망 / NAT 뒤)**: `tunnel-client`와 실제 보호 대상인 로컬 서비스(`flask-client`)가 위치합니다. 클라이언트가 외부 서버에 아웃바운드로 지속적인 HTTP 폴링을 시도하여 방화벽을 우회합니다.
+
+## 2. 프로젝트 구조
+
+```
+http-tunnel/
 ├── client/
 │   ├── main.go
 │   ├── Dockerfile
 │   └── .dockerignore
+├── server/
+│   ├── main.go
+│   ├── Dockerfile
+│   └── .dockerignore
+├── nginx/
+│   ├── nginx.conf
+│   └── Dockerfile
+├── flask-client/
+│   ├── app.py
+│   └── Dockerfile
 └── docker-compose.yml   # 데모/테스트용
 ```
 
@@ -72,18 +117,17 @@ docker run -d \
 
 ## docker-compose로 한번에 테스트
 
-동봉된 `docker-compose.yml`은 서버+클라이언트+더미 로컬서비스(`http-echo`)를
-한 네트워크에 띄워 전체 흐름을 바로 확인할 수 있게 구성했습니다.
+동봉된 `docker-compose.yml`은 서버+클라이언트+Nginx 게이트웨이+실제 Flask 로컬서비스(`flask-client`)를 한 네트워크에 띄워 전체 흐름을 바로 확인할 수 있게 구성했습니다. (포트 충돌 방지를 위해 외부 노출 포트는 `40080`을 사용합니다.)
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-기동 후 아래처럼 공개 포트(9000)로 요청하면 로컬 서비스의 응답이 터널을 거쳐 돌아옵니다:
+기동 후 아래처럼 Nginx 게이트웨이 포트(40080)로 요청하면 로컬 Flask 서비스의 응답이 역방향 터널을 거쳐 돌아옵니다:
 
 ```bash
-curl http://localhost:9000/
-# -> hello from local service
+curl http://localhost:40080/
+# -> {"headers":{...},"location":"Client Side (Internal / NAT)","message":"Hello from Internal Flask Server (via HTTP Tunnel)!","status":"tunneled_access"}
 ```
 
 운영 환경으로 옮길 때는 `docker-compose.yml`의 `tunnel-server`/`tunnel-client`를
