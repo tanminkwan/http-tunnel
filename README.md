@@ -69,6 +69,9 @@ docker build -t http-tunnel-server ./server
 
 # 클라이언트 (내부망/NAT 뒤에 배포할 이미지)
 docker build -t http-tunnel-client ./client
+
+# 테스트용 Flask 클라이언트 이미지
+docker build -t http-tunnel-flask-client ./flask-client
 ```
 
 멀티 아키텍처(예: ARM 서버/라즈베리파이 등)로 빌드하려면:
@@ -120,7 +123,8 @@ docker run -d \
 동봉된 `docker-compose.yml`은 서버+클라이언트+Nginx 게이트웨이+실제 Flask 로컬서비스(`flask-client`)를 한 네트워크에 띄워 전체 흐름을 바로 확인할 수 있게 구성했습니다. (포트 충돌 방지를 위해 외부 노출 포트는 `40080`을 사용합니다.)
 
 ```bash
-docker compose up --build -d
+# 먼저 위 지침에 따라 이미지를 빌드한 후 실행합니다.
+docker compose up -d
 ```
 
 기동 후 아래처럼 Nginx 게이트웨이 포트(40080)로 요청하면 로컬 Flask 서비스의 응답이 역방향 터널을 거쳐 돌아옵니다:

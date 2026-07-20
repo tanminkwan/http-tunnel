@@ -3,9 +3,11 @@ version: "3.8"
 services:
   # 1. Nginx Gateway (실제 요청을 받는 관문)
   nginx-gateway:
-    build: ./nginx
+    image: nginx:alpine
     ports:
       - "40080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - tunnel-server
     networks:
@@ -13,7 +15,7 @@ services:
 
   # 2. HTTP 터널 서버 (Server-side)
   tunnel-server:
-    build: ./server
+    image: http-tunnel-server:latest
     environment:
       AUTH_TOKEN: test-token-123
       HTTP_PORT: "8080"
@@ -23,7 +25,7 @@ services:
 
   # 3. HTTP 터널 클라이언트 (Client-side / 내부망)
   tunnel-client:
-    build: ./client
+    image: http-tunnel-client:latest
     environment:
       SERVER_URL: http://tunnel-server:8080
       AUTH_TOKEN: test-token-123
@@ -37,7 +39,7 @@ services:
 
   # 4. 내부망 (Client-side) Flask App (터널을 거쳐 노출될 실제 로컬 서비스)
   flask-client:
-    build: ./flask-client
+    image: http-tunnel-flask-client:latest
     networks:
       - tunnel-net
 

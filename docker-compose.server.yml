@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  # 1. Nginx Gateway (외부 실제 HTTP 요청을 받는 관문 - 포트 80)
+  nginx-gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - tunnel-server
+    networks:
+      - tunnel-net
+    restart: always
+
+  # 2. HTTP 터널 서버 (Server-side, API 포트를 20080으로 외부에 노출하여 클라이언트가 접속할 수 있게 함)
+  tunnel-server:
+    image: http-tunnel-server:latest
+    ports:
+      - "20080:8080"
+    environment:
+      AUTH_TOKEN: change-me  # 터널 클라이언트 인증에 사용할 토큰 값 (운영 환경에선 임의의 값으로 변경 필요)
+      HTTP_PORT: "8080"
+      PUBLIC_PORT: "9000"
+    networks:
+      - tunnel-net
+    restart: always
+
+networks:
+  tunnel-net:
+    driver: bridge

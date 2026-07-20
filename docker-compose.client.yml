@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  # 1. HTTP 터널 클라이언트 (Client-side / 내부망)
+  tunnel-client:
+    image: http-tunnel-client:latest
+    environment:
+      SERVER_URL: http://your-server-ip:20080 # 실제 공개 서버 IP 및 API 포트로 변경 필요
+      AUTH_TOKEN: change-me                   # 서버와 동일한 인증 토큰 값으로 설정 필요
+      LOCAL_HOST: flask-client                # 터널링할 로컬 서비스 호스트 (예: flask-client 또는 host.docker.internal)
+      LOCAL_PORT: "5000"                      # 터널링할 로컬 서비스 포트
+    depends_on:
+      - flask-client
+    networks:
+      - tunnel-net
+    restart: always
+
+  # 2. 내부망 (Client-side) Flask App (터널을 거쳐 노출될 실제 로컬 서비스 예시)
+  flask-client:
+    image: http-tunnel-flask-client:latest
+    networks:
+      - tunnel-net
+    restart: always
+
+networks:
+  tunnel-net:
+    driver: bridge
