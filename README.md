@@ -101,6 +101,7 @@ docker run -d \
   -e AUTH_TOKEN=원하는비밀값 \
   -e LOCAL_HOST=host.docker.internal \
   -e LOCAL_PORT=3000 \
+  -e SKIP_VERIFY=false \
   --name tunnel-client \
   http-tunnel-client
 ```
@@ -142,6 +143,7 @@ curl http://localhost:40080/
 - [ ] `AUTH_TOKEN` 기본값(`change-me`)을 실제 운영값으로 교체
 - [ ] 서버 앞단에 nginx/Caddy 등으로 `https://` 종단 처리 (443 포트)
 - [ ] 클라이언트의 `SERVER_URL`을 `https://`로 설정
+- [ ] 자체 서명 인증서나 사설 프록시 통신 시 `SKIP_VERIFY=true` 환경 변수 활용
 - [ ] `LOCAL_HOST`를 배포 환경(호스트 서비스 vs 컨테이너 서비스)에 맞게 설정
 - [ ] 컨테이너 재시작 정책 설정 (`--restart unless-stopped` 등, 클라이언트 재연결 로직은
       코드에 이미 포함되어 있지만 프로세스 자체가 죽는 경우 대비)

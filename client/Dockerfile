@@ -18,6 +18,7 @@ COPY --from=builder /src/tunnel-client /tunnel-client
 ENV SERVER_URL=https://YOUR_SERVER_IP:8080 \
     AUTH_TOKEN=change-me \
     LOCAL_HOST=127.0.0.1 \
-    LOCAL_PORT=3000
+    LOCAL_PORT=3000 \
+    SKIP_VERIFY=false
 
 ENTRYPOINT ["/tunnel-client"]

@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/binary"
 	"io"
 	"log"
@@ -29,8 +30,14 @@ var (
 	authToken = getEnv("AUTH_TOKEN", "change-me")
 	localHost = getEnv("LOCAL_HOST", "127.0.0.1")
 	localPort = getEnv("LOCAL_PORT", "3000")
+	skipVerify = getEnv("SKIP_VERIFY", "false") == "true"
 
-	httpClient = &http.Client{Timeout: 35 * time.Second} // poll 타임아웃(25s)보다 여유있게
+	httpClient = &http.Client{
+		Timeout: 35 * time.Second, // poll 타임아웃(25s)보다 여유있게
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify},
+		},
+	}
 )
 
 func getEnv(key, fallback string) string {
